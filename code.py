@@ -3,9 +3,9 @@ import board
 from digitalio import DigitalInOut, Direction, Pull
 import displayio
 import rotaryio
+import time
 import wifi
 import socketpool
-import time
 import adafruit_imageload as imageload
 
 from airtub import pack_data
@@ -14,7 +14,7 @@ from secrets import secrets
 # define msg_type and ttl
 msg_type = 3  # 1:airtub 2:airtemp 3:aircube 4:airmon 5:airlog
 multicast_port = 4211
-multicast_group = secrets["device"] + ".local"
+multicast_group = "224.0.1.3"
 
 # define rotary encoder
 encoder = rotaryio.IncrementalEncoder(board.IO42, board.IO41)
@@ -29,7 +29,7 @@ last_state = button.value
 
 # init airtub communication
 wifi.radio.connect(ssid=secrets["ssid"], password=secrets["password"])
-print("my IP addr:", wifi.radio.ipv4_address)
+print("my ip addr:", wifi.radio.ipv4_address)
 pool = socketpool.SocketPool(wifi.radio)
 sock = pool.socket(pool.AF_INET, pool.SOCK_DGRAM)
 
@@ -60,10 +60,9 @@ def constrain(value, min_value, max_value):
 def change_color(value):
     if value < 40:
         return 0xFFFFFF  # 白色
-    elif value < 50:
+    if value < 50:
         return 0xFFA500  # 橙色
-    else:
-        return 0xFF0000  # 红色
+    return 0xFF0000  # 红色
 
 
 # update_temperature
@@ -77,6 +76,7 @@ def setDhwTemp(socket, myname, target, password, value):
     message = f'{{"tar":"{target}","dev":"{myname}","tdt":{value},"sta":1}}'
     send_message = pack_data(msg_type, message, password)
     try:
+        socket.settimeout(0)
         socket.sendto(send_message, (multicast_group, multicast_port))
     except BrokenPipeError:
         print("Connection closed by the other side")
