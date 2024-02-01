@@ -13,9 +13,11 @@ from secrets import secrets
 
 # define msg_type and ttl
 msg_type = 3  # 1:airtub 2:airtemp 3:aircube 4:airmon 5:airlog
-multicast_port = 4211
-multicast_group = secrets["device"] + ".local"
+port = 4211
+unicast_host = secrets["device"] + ".local"
+
 data_buffer = bytearray(256)
+data_buffer_m = bytearray(256)
 
 # define rotary encoder
 encoder = rotaryio.IncrementalEncoder(board.IO42, board.IO41)
@@ -28,12 +30,13 @@ button.direction = Direction.INPUT
 button.pull = Pull.UP
 last_state = button.value
 
+
 # init airtub communication
 wifi.radio.connect(ssid=secrets["ssid"], password=secrets["password"])
 print("my ip addr:", str(wifi.radio.ipv4_address))
 pool = socketpool.SocketPool(wifi.radio)
 sock = pool.socket(pool.AF_INET, pool.SOCK_DGRAM)
-sock.connect((multicast_group, multicast_port))
+sock.connect((unicast_host, port))
 sock.setblocking(False)
 sock.settimeout(0)
 
@@ -80,7 +83,7 @@ def setDhwTemp(socket, myname, target, password, value):
     message = f'{{"tar":"{target}","dev":"{myname}","tdt":{value},"sta":1}}'
     send_message = pack_data(msg_type, message, password)
     try:
-        socket.sendto(send_message, (multicast_group, multicast_port))
+        socket.sendto(send_message, (unicast_host, port))
     except BrokenPipeError:
         print("Connection closed by the other side")
 
