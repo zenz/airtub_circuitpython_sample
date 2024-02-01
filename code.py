@@ -30,7 +30,7 @@ last_state = button.value
 
 # init airtub communication
 wifi.radio.connect(ssid=secrets["ssid"], password=secrets["password"])
-print("my ip addr:", wifi.radio.ipv4_address)
+print("my ip addr:", str(wifi.radio.ipv4_address))
 pool = socketpool.SocketPool(wifi.radio)
 sock = pool.socket(pool.AF_INET, pool.SOCK_DGRAM)
 sock.connect((multicast_group, multicast_port))
@@ -102,7 +102,8 @@ while True:
             else:
                 print("data not received, resend")
                 should_resend = True
-
+        else:
+            should_resend = True
     except OSError:
         pass
     if should_resend:
