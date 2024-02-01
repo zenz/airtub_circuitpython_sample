@@ -8,13 +8,14 @@ import wifi
 import socketpool
 import adafruit_imageload as imageload
 
-from airtub import pack_data
+from airtub import pack_data, unpack_data
 from secrets import secrets
 
 # define msg_type and ttl
 msg_type = 3  # 1:airtub 2:airtemp 3:aircube 4:airmon 5:airlog
 multicast_port = 4211
-multicast_group = "224.0.1.3"
+multicast_group = secrets["device"] + ".local"
+data_buffer = bytearray(256)
 
 # define rotary encoder
 encoder = rotaryio.IncrementalEncoder(board.IO42, board.IO41)
@@ -32,6 +33,9 @@ wifi.radio.connect(ssid=secrets["ssid"], password=secrets["password"])
 print("my ip addr:", wifi.radio.ipv4_address)
 pool = socketpool.SocketPool(wifi.radio)
 sock = pool.socket(pool.AF_INET, pool.SOCK_DGRAM)
+sock.connect((multicast_group, multicast_port))
+sock.setblocking(False)
+sock.settimeout(0)
 
 screen = IoTs2().screen
 # screen.rotation = 270  # button on the left-hand
@@ -76,7 +80,6 @@ def setDhwTemp(socket, myname, target, password, value):
     message = f'{{"tar":"{target}","dev":"{myname}","tdt":{value},"sta":1}}'
     send_message = pack_data(msg_type, message, password)
     try:
-        socket.settimeout(0)
         socket.sendto(send_message, (multicast_group, multicast_port))
     except BrokenPipeError:
         print("Connection closed by the other side")
@@ -84,7 +87,26 @@ def setDhwTemp(socket, myname, target, password, value):
 
 screen.show(group)
 
+should_resend = False
+
 while True:
+    try:
+        size, addr = sock.recvfrom_into(data_buffer)
+        if size > 0:
+            dataid, datalen, realdata, crc1, crc2 = unpack_data(
+                data_buffer, size, secrets["devpass"]
+            )
+            if crc1 == crc2 and secrets["device"] in realdata:
+                print("data received:", realdata)
+                should_resend = False
+            else:
+                print("data not received, resend")
+                should_resend = True
+
+    except OSError:
+        pass
+    if should_resend:
+        update_temperature(temperature_setpoint)
     current_state = button.value
     if current_state != last_state:
         if current_state:
