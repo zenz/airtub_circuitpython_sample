@@ -5,6 +5,7 @@ import rotaryio
 import time
 import wifi
 import socketpool
+import select
 import adafruit_imageload as imageload
 
 from airtub import pack_data, unpack_data
@@ -90,34 +91,42 @@ def setDhwTemp(socket, myname, target, password, value):
 board.DISPLAY.root_group = group
 board.DISPLAY.refresh(target_frames_per_second=60)
 
-should_resend = False
+poller = select.poll()
+poller.register(sock, select.POLLIN)
+command_send = False
 
 while True:
-    try:
-        size, addr = sock.recvfrom_into(data_buffer)
-        if size > 0:
-            dataid, datalen, realdata, crc1, crc2 = unpack_data(
-                data_buffer, size, secrets["devpass"]
-            )
-            if crc1 == crc2 and secrets["device"] in realdata:
-                print("data received:", realdata)
-                should_resend = False
-            else:
-                print("data not received, resend")
-                should_resend = True
-        else:
-            should_resend = True
+    if poller.poll(0) and command_send:
+        try:
+            size, addr = sock.recvfrom_into(data_buffer)
+            if size > 0:
+                dataid, datalen, realdata, crc1, crc2 = unpack_data(
+                    data_buffer, size, secrets["devpass"]
+                )
+                if crc1 == crc2 and secrets["device"] in realdata:
+                    print("command received")
+                    command_send = False
 
-    except OSError:
-        pass
-    if should_resend:
-        update_temperature(temperature_setpoint)
+        except OSError:
+            pass
+
+    elif command_send:
+        print("resend...")
+        setDhwTemp(
+            sock,
+            secrets["myname"],
+            secrets["device"],
+            secrets["devpass"],
+            temperature_setpoint,
+        )
+
     current_state = button.value
     if current_state != last_state:
         if current_state:
             print("Button released!")
         else:
             print("Button pressed!")
+            command_send = True
             setDhwTemp(
                 sock,
                 secrets["myname"],
@@ -134,5 +143,4 @@ while True:
     update_temperature(temperature_setpoint)
     palette[0] = change_color(temperature_setpoint)
     temperature.pixel_shader = palette
-    board.DISPLAY.refresh(target_frames_per_second=60)
     time.sleep(0.005)
