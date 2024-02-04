@@ -1,4 +1,3 @@
-from hiibot_iots2 import IoTs2
 import board
 from digitalio import DigitalInOut, Direction, Pull
 import displayio
@@ -40,7 +39,7 @@ sock.connect((unicast_host, port))
 sock.setblocking(False)
 sock.settimeout(0)
 
-screen = IoTs2().screen
+board.DISPLAY.refresh(target_frames_per_second=60)
 # screen.rotation = 270  # button on the left-hand
 group = displayio.Group(scale=4)
 
@@ -88,7 +87,8 @@ def setDhwTemp(socket, myname, target, password, value):
         print("Connection closed by the other side")
 
 
-screen.show(group)
+board.DISPLAY.root_group = group
+board.DISPLAY.refresh(target_frames_per_second=60)
 
 should_resend = False
 
@@ -107,6 +107,7 @@ while True:
                 should_resend = True
         else:
             should_resend = True
+
     except OSError:
         pass
     if should_resend:
@@ -133,5 +134,5 @@ while True:
     update_temperature(temperature_setpoint)
     palette[0] = change_color(temperature_setpoint)
     temperature.pixel_shader = palette
-    screen.show(group)
+    board.DISPLAY.refresh(target_frames_per_second=60)
     time.sleep(0.005)
