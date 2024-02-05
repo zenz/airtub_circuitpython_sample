@@ -145,8 +145,6 @@ while True:
             palette[0] = 0x000000
             temperature.pixel_shader = palette
             time.sleep(0.3)
-            palette[0] = 0x00FF00
-            temperature.pixel_shader = palette
         else:
             print("Button pressed!")
             command_send = True
