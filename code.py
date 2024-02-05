@@ -7,6 +7,7 @@ import wifi
 import socketpool
 import select
 import alarm
+import supervisor
 import adafruit_imageload as imageload
 
 from airtub import pack_data, unpack_data
@@ -59,6 +60,10 @@ encoder = rotaryio.IncrementalEncoder(board.IO42, board.IO41)
 last_position = 0
 temperature_setpoint = 45
 
+# read from alarm_memory
+if alarm.wake_alarm:
+    temperature_setpoint = alarm.sleep_memory[0]
+
 # define button
 button = DigitalInOut(board.IO40)
 button.direction = Direction.INPUT
@@ -76,8 +81,8 @@ try:
     sock.settimeout(0)
 except OSError as e:
     print("Unable to initialize the network", e)
-    while True:
-        pass
+    time.sleep(2)
+    supervisor.reload()
 
 board.DISPLAY.refresh(target_frames_per_second=60)
 # screen.rotation = 270  # button on the left-hand
@@ -159,6 +164,7 @@ while True:
     temperature.pixel_shader = palette
     counter += 0.005
     if counter >= 10:
+        alarm.sleep_memory[0] = temperature_setpoint
         time.sleep(2)
         alarm.exit_and_deep_sleep_until_alarms(pin_alarm)
     time.sleep(0.005)
