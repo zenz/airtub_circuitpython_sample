@@ -6,56 +6,11 @@ import time
 import wifi
 import socketpool
 import select
+import alarm
 import adafruit_imageload as imageload
 
 from airtub import pack_data, unpack_data
 from secrets import secrets
-
-# define msg_type and ttl
-msg_type = 3  # 1:airtub 2:airtemp 3:aircube 4:airmon 5:airlog
-port = 4211
-unicast_host = secrets["device"] + ".local"
-
-data_buffer = bytearray(256)
-data_buffer_m = bytearray(256)
-
-# define rotary encoder
-encoder = rotaryio.IncrementalEncoder(board.IO42, board.IO41)
-last_position = 0
-temperature_setpoint = 45
-
-# define button
-button = DigitalInOut(board.IO40)
-button.direction = Direction.INPUT
-button.pull = Pull.UP
-last_state = button.value
-
-
-# init airtub communication
-wifi.radio.connect(ssid=secrets["ssid"], password=secrets["password"])
-print("my ip addr:", str(wifi.radio.ipv4_address))
-pool = socketpool.SocketPool(wifi.radio)
-sock = pool.socket(pool.AF_INET, pool.SOCK_DGRAM)
-sock.connect((unicast_host, port))
-sock.setblocking(False)
-sock.settimeout(0)
-
-board.DISPLAY.refresh(target_frames_per_second=60)
-# screen.rotation = 270  # button on the left-hand
-group = displayio.Group(scale=4)
-
-# Load digital (temperature) bitmap
-digital_bmp, palette = imageload.load(
-    "/airtub/digital200x25.bmp", bitmap=displayio.Bitmap, palette=displayio.Palette
-)
-palette.make_transparent(1)
-palette[0] = 0xFFFFFF
-temperature = displayio.TileGrid(
-    digital_bmp, pixel_shader=palette, width=2, height=1, tile_width=20, tile_height=25
-)
-temperature.x = 10
-temperature.y = 4
-group.append(temperature)
 
 
 # constrain the temperature to 35-60
@@ -79,7 +34,7 @@ def update_temperature(points):
 
 
 # send command to airtub_partner
-def setDhwTemp(socket, myname, target, password, value):
+def setDhwTemp(socket, myname, target, password, msg_type, value):
     message = f'{{"tar":"{target}","dev":"{myname}","tdt":{value},"sta":1}}'
     send_message = pack_data(msg_type, message, password)
     try:
@@ -88,12 +43,68 @@ def setDhwTemp(socket, myname, target, password, value):
         print("Connection closed by the other side")
 
 
+# define msg_type and ttl
+msg_type = 3  # 1:airtub 2:airtemp 3:aircube 4:airmon 5:airlog
+port = 4211
+unicast_host = secrets["device"] + ".local"
+
+data_buffer = bytearray(256)
+data_buffer_m = bytearray(256)
+
+# define alarm
+pin_alarm = alarm.pin.PinAlarm(board.IO21, pull=True, value=False)
+
+# define rotary encoder
+encoder = rotaryio.IncrementalEncoder(board.IO42, board.IO41)
+last_position = 0
+temperature_setpoint = 45
+
+# define button
+button = DigitalInOut(board.IO40)
+button.direction = Direction.INPUT
+button.pull = Pull.UP
+last_state = button.value
+
+# init airtub communication
+try:
+    wifi.radio.connect(ssid=secrets["ssid"], password=secrets["password"])
+    print("my ip addr:", str(wifi.radio.ipv4_address))
+    pool = socketpool.SocketPool(wifi.radio)
+    sock = pool.socket(pool.AF_INET, pool.SOCK_DGRAM)
+    sock.connect((unicast_host, port))
+    sock.setblocking(False)
+    sock.settimeout(0)
+except OSError as e:
+    print("Unable to initialize the network", e)
+    while True:
+        pass
+
+board.DISPLAY.refresh(target_frames_per_second=60)
+# screen.rotation = 270  # button on the left-hand
+group = displayio.Group(scale=4)
+
+# Load digital (temperature) bitmap
+digital_bmp, palette = imageload.load(
+    "/airtub/digital200x25.bmp", bitmap=displayio.Bitmap, palette=displayio.Palette
+)
+palette.make_transparent(1)
+palette[0] = 0xFFFFFF
+temperature = displayio.TileGrid(
+    digital_bmp, pixel_shader=palette, width=2, height=1, tile_width=20, tile_height=25
+)
+temperature.x = 10
+temperature.y = 4
+group.append(temperature)
+
+
 board.DISPLAY.root_group = group
 board.DISPLAY.refresh(target_frames_per_second=60)
 
 poller = select.poll()
 poller.register(sock, select.POLLIN)
 command_send = False
+
+counter = 0
 
 while True:
     if poller.poll(0) and command_send:
@@ -117,6 +128,7 @@ while True:
             secrets["myname"],
             secrets["device"],
             secrets["devpass"],
+            msg_type,
             temperature_setpoint,
         )
 
@@ -124,6 +136,7 @@ while True:
     if current_state != last_state:
         if current_state:
             print("Button released!")
+            counter = 0
         else:
             print("Button pressed!")
             command_send = True
@@ -132,6 +145,7 @@ while True:
                 secrets["myname"],
                 secrets["device"],
                 secrets["devpass"],
+                msg_type,
                 temperature_setpoint,
             )
         last_state = current_state
@@ -143,4 +157,8 @@ while True:
     update_temperature(temperature_setpoint)
     palette[0] = change_color(temperature_setpoint)
     temperature.pixel_shader = palette
+    counter += 0.005
+    if counter >= 10:
+        time.sleep(2)
+        alarm.exit_and_deep_sleep_until_alarms(pin_alarm)
     time.sleep(0.005)
