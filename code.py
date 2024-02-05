@@ -81,7 +81,7 @@ try:
     sock.settimeout(0)
 except OSError as e:
     print("Unable to initialize the network", e)
-    time.sleep(2)
+    time.sleep(10)
     supervisor.reload()
 
 board.DISPLAY.refresh(target_frames_per_second=60)
@@ -142,6 +142,11 @@ while True:
         if current_state:
             print("Button released!")
             counter = 0
+            palette[0] = 0x000000
+            temperature.pixel_shader = palette
+            time.sleep(0.3)
+            palette[0] = 0x00FF00
+            temperature.pixel_shader = palette
         else:
             print("Button pressed!")
             command_send = True
