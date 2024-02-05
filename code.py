@@ -156,6 +156,8 @@ while True:
         last_state = current_state
     current_position = encoder.position
     position_change = current_position - last_position
+    if position_change != 0:
+        counter = 0
     last_position = current_position
     temperature_setpoint += position_change
     temperature_setpoint = constrain(temperature_setpoint, 35, 60)
