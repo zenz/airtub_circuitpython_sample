@@ -107,6 +107,7 @@ poller = select.poll()
 poller.register(sock, select.POLLIN)
 command_send = False
 
+deep_sleep = False
 counter = 0
 
 while True:
@@ -166,7 +167,7 @@ while True:
     palette[0] = change_color(temperature_setpoint)
     temperature.pixel_shader = palette
     counter += 0.005
-    if counter >= 10:
+    if counter >= 10 and deep_sleep:
         alarm.sleep_memory[0] = temperature_setpoint
         time.sleep(2)
         alarm.exit_and_deep_sleep_until_alarms(pin_alarm)
