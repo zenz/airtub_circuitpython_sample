@@ -7,7 +7,6 @@ import wifi
 import socketpool
 import select
 import alarm
-import supervisor
 import adafruit_imageload as imageload
 
 from airtub import pack_data, unpack_data
@@ -81,8 +80,7 @@ try:
     sock.settimeout(0)
 except OSError as e:
     print("Unable to initialize the network", e)
-    time.sleep(10)
-    supervisor.reload()
+    pass
 
 board.DISPLAY.refresh(target_frames_per_second=60)
 # screen.rotation = 270  # button on the left-hand
