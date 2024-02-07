@@ -1,25 +1,26 @@
+import time
+import select
+import os
 import board
 from digitalio import DigitalInOut, Direction, Pull
 import displayio
 import rotaryio
-import time
+import alarm
+
 import wifi
 import socketpool
-import select
-import alarm
-import os
 import adafruit_imageload as imageload
 
 from airtub import pack_data, unpack_data
 
 
-# constrain the temperature to 35-60
 def constrain(value, min_value, max_value):
+    """constrain the temperature to 35-60"""
     return max(min(value, max_value), min_value)
 
 
-# change pallete color
 def change_color(value):
+    """change pallete color"""
     if value < 40:
         return 0xFFFFFF  # 白色
     if value < 50:
@@ -27,14 +28,14 @@ def change_color(value):
     return 0xFF0000  # 红色
 
 
-# update_temperature
 def update_temperature(points):
+    """update_temperature"""
     temperature[1] = points % 10
     temperature[0] = (points // 10) % 10
 
 
-# send command to airtub_partner
-def setDhwTemp(host, socket, remote, target, password, msg_type, value):
+def set_dhw_temp(host, socket, remote, target, password, msg_type, value):
+    """send command to airtub_partner"""
     message = f'{{"tar":"{target}","dev":"{remote}","tdt":{value},"sta":1}}'
     send_message = pack_data(msg_type, message, password)
     try:
@@ -81,7 +82,8 @@ try:
     wifi.radio.connect(ssid=wifi_ssid, password=wifi_password)
     print("my ip addr:", str(wifi.radio.ipv4_address))
     pool = socketpool.SocketPool(wifi.radio)
-    sock = pool.socket(pool.AF_INET, pool.SOCK_DGRAM, pool.IPPROTO_UDP)
+    sock = pool.socket(pool.AF_INET, pool.SOCK_DGRAM)
+    # sock.bind((udp_grp, port))
     # sock.connect((unicast_host, port))
     sock.setblocking(False)
     sock.settimeout(0)
@@ -124,6 +126,7 @@ while True:
                     data_buffer, size, device_password
                 )
                 if crc1 == crc2 and device_name in realdata:
+                    print("")
                     print("command received:", realdata)
                     command_send = False
 
@@ -131,8 +134,8 @@ while True:
             pass
 
     elif command_send:
-        print("resend...")
-        setDhwTemp(
+        print(".", end="")
+        set_dhw_temp(
             unicast_host,
             sock,
             remote_name,
@@ -141,6 +144,7 @@ while True:
             remote_type,
             temperature_setpoint,
         )
+        time.sleep(0.5)
 
     current_state = button.value
     if current_state != last_state:
@@ -153,7 +157,7 @@ while True:
         else:
             print("Button pressed!")
             command_send = True
-            setDhwTemp(
+            set_dhw_temp(
                 unicast_host,
                 sock,
                 remote_name,
