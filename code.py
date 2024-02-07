@@ -1,3 +1,8 @@
+""" This is a simple thermostat for airtub water heater."""
+
+# pylint: disable=import-error
+# pylint: disable=invalid-name
+
 import time
 import select
 import os
@@ -83,14 +88,13 @@ try:
     print("my ip addr:", str(wifi.radio.ipv4_address))
     pool = socketpool.SocketPool(wifi.radio)
     sock = pool.socket(pool.AF_INET, pool.SOCK_DGRAM)
-    # sock.bind((udp_grp, port))
     # sock.connect((unicast_host, port))
     sock.setblocking(False)
     sock.settimeout(0)
 except OSError as e:
     print("Unable to initialize the network", e)
 
-board.DISPLAY.refresh(target_frames_per_second=60)
+
 # screen.rotation = 270  # button on the left-hand
 group = displayio.Group(scale=4)
 
@@ -107,9 +111,10 @@ temperature.x = 10
 temperature.y = 4
 group.append(temperature)
 
-
-board.DISPLAY.root_group = group
-board.DISPLAY.refresh(target_frames_per_second=60)
+# init display
+display = board.DISPLAY
+display.root_group = group
+display.refresh(target_frames_per_second=60)
 
 poller = select.poll()
 poller.register(sock, select.POLLIN)
