@@ -57,7 +57,7 @@ pin_alarm = alarm.pin.PinAlarm(board.IO21, pull=True, value=False)
 # define rotary encoder
 encoder = rotaryio.IncrementalEncoder(board.IO42, board.IO41)
 last_position = 0
-temperature_setpoint = 45
+temperature_setpoint = 43
 
 # read from alarm_memory
 if alarm.wake_alarm:
@@ -80,7 +80,6 @@ try:
     sock.settimeout(0)
 except OSError as e:
     print("Unable to initialize the network", e)
-    pass
 
 board.DISPLAY.refresh(target_frames_per_second=60)
 # screen.rotation = 270  # button on the left-hand
