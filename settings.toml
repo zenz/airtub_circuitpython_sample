@@ -1,0 +1,9 @@
+WIFI_SSID = "WIFI_SSID"
+WIFI_PASSWORD = "WIFI_PASSWORD"
+REMOTE_NAME = "this_device_name"
+REMOTE_TYPE = 3
+DEVICE_NAME = "boiler_serial"
+DEVICE_PASSWORD = "boiler_password"
+UDP_GROUP = "224.0.1.3"
+UDP_PORT = 4211
+DEEP_SLEEP = 0

@@ -7,10 +7,10 @@ import wifi
 import socketpool
 import select
 import alarm
+import os
 import adafruit_imageload as imageload
 
 from airtub import pack_data, unpack_data
-from secrets import secrets
 
 
 # constrain the temperature to 35-60
@@ -34,8 +34,8 @@ def update_temperature(points):
 
 
 # send command to airtub_partner
-def setDhwTemp(socket, myname, target, password, msg_type, value):
-    message = f'{{"tar":"{target}","dev":"{myname}","tdt":{value},"sta":1}}'
+def setDhwTemp(socket, remote, target, password, msg_type, value):
+    message = f'{{"tar":"{target}","dev":"{remote}","tdt":{value},"sta":1}}'
     send_message = pack_data(msg_type, message, password)
     try:
         socket.sendto(send_message, (unicast_host, port))
@@ -43,13 +43,20 @@ def setDhwTemp(socket, myname, target, password, msg_type, value):
         print("Connection closed by the other side")
 
 
-# define msg_type and ttl
-msg_type = 3  # 1:airtub 2:airtemp 3:aircube 4:airmon 5:airlog
-port = 4211
-unicast_host = secrets["device"] + ".local"
+# get environment data
+wifi_ssid = os.getenv("WIFI_SSID")
+wifi_password = os.getenv("WIFI_PASSWORD")
+device_name = os.getenv("DEVICE_NAME")
+device_password = os.getenv("DEVICE_PASSWORD")
+remote_name = os.getenv("REMOTE_NAME")
+remote_type = os.getenv("REMOTE_TYPE")
+port = os.getenv("UDP_PORT")
+udp_grp = os.getenv("UDP_GROUP")
+unicast_host = device_name + ".local"
+deep_sleep = os.getenv("DEEP_SLEEP")
 
-data_buffer = bytearray(256)
-data_buffer_m = bytearray(256)
+
+data_buffer = bytearray(512)
 
 # define alarm
 pin_alarm = alarm.pin.PinAlarm(board.IO21, pull=True, value=False)
@@ -71,11 +78,11 @@ last_state = button.value
 
 # init airtub communication
 try:
-    wifi.radio.connect(ssid=secrets["ssid"], password=secrets["password"])
+    wifi.radio.connect(ssid=wifi_ssid, password=wifi_password)
     print("my ip addr:", str(wifi.radio.ipv4_address))
     pool = socketpool.SocketPool(wifi.radio)
-    sock = pool.socket(pool.AF_INET, pool.SOCK_DGRAM)
-    sock.connect((unicast_host, port))
+    sock = pool.socket(pool.AF_INET, pool.SOCK_DGRAM, pool.IPPROTO_UDP)
+    # sock.connect((unicast_host, port))
     sock.setblocking(False)
     sock.settimeout(0)
 except OSError as e:
@@ -106,7 +113,6 @@ poller = select.poll()
 poller.register(sock, select.POLLIN)
 command_send = False
 
-deep_sleep = False
 counter = 0
 
 while True:
@@ -115,10 +121,10 @@ while True:
             size, addr = sock.recvfrom_into(data_buffer)
             if size > 0:
                 dataid, datalen, realdata, crc1, crc2 = unpack_data(
-                    data_buffer, size, secrets["devpass"]
+                    data_buffer, size, device_password
                 )
-                if crc1 == crc2 and secrets["device"] in realdata:
-                    print("command received")
+                if crc1 == crc2 and device_name in realdata:
+                    print("command received:", realdata)
                     command_send = False
 
         except OSError:
@@ -128,10 +134,10 @@ while True:
         print("resend...")
         setDhwTemp(
             sock,
-            secrets["myname"],
-            secrets["device"],
-            secrets["devpass"],
-            msg_type,
+            remote_name,
+            device_name,
+            device_password,
+            remote_type,
             temperature_setpoint,
         )
 
@@ -148,10 +154,10 @@ while True:
             command_send = True
             setDhwTemp(
                 sock,
-                secrets["myname"],
-                secrets["device"],
-                secrets["devpass"],
-                msg_type,
+                remote_name,
+                device_name,
+                device_password,
+                remote_type,
                 temperature_setpoint,
             )
         last_state = current_state
