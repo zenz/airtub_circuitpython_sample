@@ -34,11 +34,11 @@ def update_temperature(points):
 
 
 # send command to airtub_partner
-def setDhwTemp(socket, remote, target, password, msg_type, value):
+def setDhwTemp(host, socket, remote, target, password, msg_type, value):
     message = f'{{"tar":"{target}","dev":"{remote}","tdt":{value},"sta":1}}'
     send_message = pack_data(msg_type, message, password)
     try:
-        socket.sendto(send_message, (unicast_host, port))
+        socket.sendto(send_message, (host, port))
     except BrokenPipeError:
         print("Connection closed by the other side")
 
@@ -133,6 +133,7 @@ while True:
     elif command_send:
         print("resend...")
         setDhwTemp(
+            unicast_host,
             sock,
             remote_name,
             device_name,
@@ -153,6 +154,7 @@ while True:
             print("Button pressed!")
             command_send = True
             setDhwTemp(
+                unicast_host,
                 sock,
                 remote_name,
                 device_name,
